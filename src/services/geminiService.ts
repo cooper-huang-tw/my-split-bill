@@ -8,11 +8,16 @@ Output in Markdown format.
 `;
 
 export const analyzeSpending = async (trip: Trip, balances: Balance[]) => {
-  if (!process.env.API_KEY) {
+  // 修正 1: 改用 Vite 的方式讀取環境變數 (VITE_ 開頭)
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+  if (!apiKey) {
+    console.error("API Key is missing! Please set VITE_GEMINI_API_KEY in Vercel.");
     return "API Key is missing. Please check your configuration.";
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // 修正 2: 傳入 apiKey
+  const ai = new GoogleGenAI({ apiKey });
 
   // Prepare data for AI
   const expenseSummary = trip.expenses.map(e => 
@@ -50,14 +55,22 @@ export const analyzeSpending = async (trip: Trip, balances: Balance[]) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+      // 修正 3: 改用正確的模型名稱
+      model: 'gemini-1.5-flash',
+      contents: {
+        role: 'user',
+        parts: [{ text: prompt }]
+      },
       config: {
-        systemInstruction: getSystemInstruction(),
+        systemInstruction: {
+            role: 'system',
+            parts: [{ text: getSystemInstruction() }]
+        },
         temperature: 0.7,
       }
     });
-    return response.text;
+    // 修正 4: 根據新版 SDK 調整回傳讀取方式
+    return response.text() || "No insight generated.";
   } catch (error) {
     console.error("Gemini Error:", error);
     return "Could not generate insights at the moment. Try again later!";
